@@ -140,8 +140,16 @@ public class CreatureSpawnEvent extends EntityEvent implements Cancellable {
          */
         BREEDING,
         /**
-         * When a creature is manually spawned
+         * When a slime splits
          */
-        CUSTOM
+        SLIME_SPLIT,
+        /**
+         * When a creature is spawned by plugins
+         */
+        CUSTOM,
+        /**
+         * When an entity is missing a SpawnReason
+         */
+        DEFAULT
     }
 }
