@@ -8,6 +8,7 @@ import java.lang.reflect.Constructor;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.net.URL;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
@@ -22,6 +23,8 @@ import java.util.regex.Pattern;
 import org.apache.commons.lang.Validate;
 import org.bukkit.Bukkit;
 import org.bukkit.Server;
+import org.bukkit.Warning;
+import org.bukkit.Warning.WarningState;
 import org.bukkit.configuration.serialization.ConfigurationSerializable;
 import org.bukkit.configuration.serialization.ConfigurationSerialization;
 import org.bukkit.event.Event;
@@ -30,6 +33,7 @@ import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
 import org.bukkit.event.server.PluginDisableEvent;
 import org.bukkit.event.server.PluginEnableEvent;
+import org.bukkit.plugin.AuthorNagException;
 import org.bukkit.plugin.EventExecutor;
 import org.bukkit.plugin.InvalidDescriptionException;
 import org.bukkit.plugin.InvalidPluginException;
@@ -293,6 +297,30 @@ public class JavaPluginLoader implements PluginLoader {
                 eventSet = new HashSet<RegisteredListener>();
                 ret.put(eventClass, eventSet);
             }
+
+            for (Class<?> clazz = eventClass; Event.class.isAssignableFrom(clazz); clazz = clazz.getSuperclass()) {
+                // This loop checks for extending deprecated events
+                if (clazz.getAnnotation(Deprecated.class) != null) {
+                    Warning warning = clazz.getAnnotation(Warning.class);
+                    WarningState warningState = server.getWarningState();
+                    if (!warningState.printFor(warning)) {
+                        break;
+                    }
+                    plugin.getLogger().log(
+                            Level.WARNING,
+                            String.format(
+                                    "\"%s\" has registered a listener for %s on method \"%s\", but the event is Deprecated." +
+                                    " \"%s\"; please notify the authors %s.",
+                                    plugin.getDescription().getFullName(),
+                                    clazz.getName(),
+                                    method.toGenericString(),
+                                    (warning != null && warning.reason().length() != 0) ? warning.reason() : "Server performance will be affected",
+                                    Arrays.toString(plugin.getDescription().getAuthors().toArray())),
+                            warningState == WarningState.ON ? new AuthorNagException(null) : null);
+                    break;
+                }
+            }
+
             EventExecutor executor = new EventExecutor() {
                 public void execute(Listener listener, Event event) throws EventException {
                     try {
